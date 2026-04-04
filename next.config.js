@@ -2,9 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  async redirects() {
-    return []
-  },
+  output: 'export',
+  distDir: 'dist',
 }
 
 module.exports = nextConfig
