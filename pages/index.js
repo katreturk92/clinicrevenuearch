@@ -1,111 +1,84 @@
-import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
-console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+import { useState, useEffect } from "react"
+import { createClient } from "@supabase/supabase-js"
 
+// Environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+// Debug logs
+console.log("SUPABASE_URL:", supabaseUrl)
+console.log("SUPABASE_KEY:", supabaseKey)
+
+// Hard fail if missing
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Missing Supabase environment variables")
+}
+
+// Create client
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Safe number helper
 const safeNum = (val, fallback = 0) => {
-  const n = parseFloat(val)
-  return isNaN(n) ? fallback : n
+  const n = parseFloat(val)
+  return isNaN(n) ? fallback : n
 }
 
 export default function ClinicRevenueArch() {
-  const [loading, setLoading] = useState(true)
-  const [clinic, setClinic] = useState(null)
-  const [services, setServices] = useState([])
-  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [clinic, setClinic] = useState(null)
+  const [services, setServices] = useState([])
+  const [error, setError] = useState(null)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-  async function fetchData() {
-    try {
-      setLoading(true)
+  async function fetchData() {
+    try {
+      setLoading(true)
 
-      // Fetch clinic (no .single())
-      const { data: clinicArray, error: clinicError } = await supabase
-        .from('clinics')
-        .select('*')
+      // Fetch clinics
+      const { data: clinicData, error: clinicError } = await supabase
+        .from("clinics")
+        .select("*")
 
-      if (clinicError) {
-        throw clinicError
-      }
+      if (clinicError) throw clinicError
 
-      let clinicData = clinicArray?.[0]
+      console.log("Clinic data:", clinicData)
 
-      // Create clinic if none exists
-      if (!clinicData) {
-        const { data: newClinic, error: createError } = await supabase
-          .from('clinics')
-          .insert([{ name: 'My Clinic', current_week: 1 }])
-          .select()
+      // Fetch services
+      const { data: servicesData, error: servicesError } = await supabase
+        .from("services")
+        .select("*")
 
-        if (createError) {
-          throw createError
-        }
+      if (servicesError) throw servicesError
 
-        clinicData = newClinic?.[0]
-      }
+      console.log("Services data:", servicesData)
 
-      setClinic(clinicData)
+      setClinic(clinicData?.[0] || null)
+      setServices(servicesData || [])
 
-      // Fetch services
-      const { data: servicesData, error: servicesError } = await supabase
-        .from('services')
-        .select('*')
-        .eq('clinic_id', clinicData.id)
+    } catch (err) {
+      console.error("Fetch error:", err.message)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      if (servicesError) {
-        throw servicesError
-      }
+  if (loading) return <div>Loading...</div>
 
-      setServices(servicesData || [])
+  if (error) return <div>Error: {error}</div>
 
-    } catch (err) {
-      console.error('App error:', err)
-      setError(err.message || 'Unknown error')
-    } finally {
-      setLoading(false)
-    }
-  }
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Clinic Revenue Architecture</h1>
 
-  if (loading) {
-    return (
-      <div style={{ padding: 40 }}>
-        Loading...
-      </div>
-    )
-  }
+      <h2>Clinic</h2>
+      <pre>{JSON.stringify(clinic, null, 2)}</pre>
 
-  if (error) {
-    return (
-      <div style={{ padding: 40, color: 'red' }}>
-        Error: {error}
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ padding: 40 }}>
-      <h1>Clinic Revenue Arch</h1>
-
-      <p><strong>Clinic:</strong> {clinic?.name}</p>
-
-      <h2>Services</h2>
-
-      {services.length === 0 ? (
-        <p>No services yet</p>
-      ) : (
-        services.map(service => (
-          <div key={service.id}>
-            {service.name} - ${safeNum(service.price)}
-          </div>
-        ))
-      )}
-    </div>
-  )
+      <h2>Services</h2>
+      <pre>{JSON.stringify(services, null, 2)}</pre>
+    </div>
+  )
 }
